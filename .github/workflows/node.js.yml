@@ -29,15 +29,30 @@ jobs:
       run: npm install
 
     - name: Run the tests
-      run: npm run test
+      run: |
+        npm run test
+
+
 
     - name: Push
       run: |
-        git config --global user.name $user_name
-        git config --global user.email $user_email
         git push -f origin develop:production
-      env:
-        user_name: 'github-actions[bot]'
-        user_email: 'github-actions[bot]@users.noreply.github.com'
-        github_token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
-        repository: ${{ github.repository }}
+        
+    - name: Check username
+      if: ${{ failure() }}
+      run: |
+        echo ::set-env name=username::$(git log -n 1 -s --format='%an')
+
+    - name: Log errors
+      if: ${{ failure() }}
+      uses: rishabhgupta/git-action-issue@v2
+      with:
+        token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
+        title: Some Issue Title
+        body: Some Issue Body
+        assignees: |
+          ${{ env.username }}
+          
+
+      
+    
