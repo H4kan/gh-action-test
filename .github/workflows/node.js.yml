@@ -28,30 +28,40 @@ jobs:
     - name: Install dependencies
       run: npm install
 
+    
     - name: Run the tests
       run: |
-        npm run test
+       touch /tmp/issueText.txt
+       npm run test 2>/tmp/issueText.txt
 
-
-
-    - name: Push
+    - name: Push to production
       run: |
         git push -f origin develop:production
         
-    - name: Check username
+    - name: Setup username to open issue
       if: ${{ failure() }}
       run: |
         echo ::set-env name=username::$(git log -n 1 -s --format='%an')
+    - name: Setup issue info to open issue
+      if: ${{ failure() }}
+      id: issue
+      uses: juliangruber/read-file-action@v1
+      with:
+        path: /tmp/issueText.txt
 
-    - name: Log errors
+    - name: Issue making
       if: ${{ failure() }}
       uses: rishabhgupta/git-action-issue@v2
       with:
         token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
-        title: Some Issue Title
-        body: Some Issue Body
+        title: Tests failed
+        body: ${{ steps.issue.outputs.content }}
         assignees: |
           ${{ env.username }}
+
+    - name: Cleanup
+      if: ${{ always() }}
+      run: rm /tmp/issueText.txt
           
 
       
