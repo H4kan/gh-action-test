@@ -1,7 +1,5 @@
-# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
 
-name: CI/CD
+name: GladiatorzyCI
 
 on:
   push:
@@ -24,6 +22,9 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: ${{ matrix.node-version }}
+    
+    - name: Check ssh-agent
+      run: which ssh-agent || ( apt-get update -y && apt-get install openssh-client  -y )
 
     - name: Install dependencies
       run: npm install
@@ -62,7 +63,14 @@ jobs:
     - name: Cleanup
       if: ${{ always() }}
       run: rm /tmp/issueText.txt
-          
+
+
+
+    - name: Deploy AWS
+      run: |
+        eval $(ssh-agent -s)
+        echo "${{ secrets.AWS_PRIVATE_KEY }}" | tr -d '\r' | ssh-add - 
+
 
       
     
