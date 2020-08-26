@@ -1,5 +1,7 @@
+# For information about setting up your repo for this CI, please see README.md
+# Author: H4kan
 
-name: DevelopCI
+name: GladiatorsCI
 
 on:
   push:
@@ -43,6 +45,7 @@ jobs:
       if: ${{ failure() }}
       run: |
         echo ::set-env name=username::$(git log -n 1 -s --format='%an')
+
     - name: Setup issue info to open issue
       if: ${{ failure() }}
       id: issue
@@ -50,11 +53,11 @@ jobs:
       with:
         path: /tmp/issueText.txt
 
-    - name: Issue making
+    - name: Opening issue
       if: ${{ failure() }}
       uses: rishabhgupta/git-action-issue@v2
       with:
-        token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
+        token: ${{ secrets.GH_TOKEN }}
         title: Tests failed
         body: ${{ steps.issue.outputs.content }}
         assignees: |
@@ -63,18 +66,40 @@ jobs:
     - name: Cleanup
       if: ${{ always() }}
       run: rm /tmp/issueText.txt
-           
-    - name: Deploy
-      run: |
-        git config --global user.name $user_name
-        git config --global user.email $user_email
-        git remote set-url origin https://${github_token}@github.com/${repository}
-        npm run deploy
+    
+    - name: Build app
+      run: npm run build
+
+    - name: Deploy to production-build
+      uses: crazy-max/ghaction-github-pages@v2
+      with:
+        target_branch: production-build
+        build_dir: build
       env:
-        user_name: 'github-actions[bot]'
-        user_email: 'github-actions[bot]@users.noreply.github.com'
-        github_token: ${{ secrets.ACTIONS_DEPLOY_ACCESS_TOKEN }}
-        repository: ${{ github.repository }}
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    - name: Disable Host key checking
+      run: |
+        mkdir -p ~/.ssh
+        touch ~/.ssh/config
+        echo -e "Host *\n\tStrictHostKeyChecking no\n\n" >> ~/.ssh/config
+        
+    - name: Remove old build from AWS
+      run: |
+        touch /tmp/rmCommand.sh
+        echo "rm -Rf /home/${{ secrets.AWS_USER }}/${{ secrets.AWS_BUILD_PATH }}" > /tmp/rmCommand.sh
+        eval $(ssh-agent -s)
+        echo "${{ secrets.AWS_PRIVATE_KEY }}" | tr -d '\r' | ssh-add -
+        ssh "${{ secrets.AWS_USER }}@${{ secrets.AWS_REMOTE }}" 'bash' < /tmp/rmCommand.sh
+
+    - name: Deploy build to AWS  
+      uses: horochx/deploy-via-scp@master
+      with:
+        local: build 
+        remote: /home/${{ secrets.AWS_USER }}/${{ secrets.AWS_BUILD_PATH }}
+        host: ${{ secrets.AWS_REMOTE }} 
+        user: ${{ secrets.AWS_USER }} 
+        key: ${{ secrets.AWS_PRIVATE_KEY }}
 
 
 
