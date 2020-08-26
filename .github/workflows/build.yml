@@ -1,0 +1,11 @@
+
+name: BuildCD
+
+on:
+  push:
+    branches: [ gh-pages ]
+    
+    - name: Deploy AWS
+      run: |
+        eval $(ssh-agent -s)
+        echo "${{ secrets.AWS_PRIVATE_KEY }}" | tr -d '\r' | ssh-add - 
